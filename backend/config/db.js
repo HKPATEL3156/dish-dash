@@ -1,9 +1,11 @@
 import mongoose from 'mongoose'
 
 export const connectDB = async () => {
-  await mongoose
-    .connect(
-      'mongodb+srv://hetpatel02684:het02684@cluster0.ulgludy.mongodb.net/DishDash'
-    )
-    .then(() => console.log('DB CONNECTED'))
+  try {
+    const conn = await mongoose.connect(process.env.MONGODB_URI)
+    console.log('DB CONNECTED')
+  } catch (error) {
+    console.error('Database connection error:', error.message)
+    process.exit(1)
+  }
 }

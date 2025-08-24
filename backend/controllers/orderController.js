@@ -3,7 +3,43 @@ import Stripe from 'stripe'
 import Order from '../modals/order.js'
 import 'dotenv/config'
 
+// Initialize Stripe with validation
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.error('STRIPE_SECRET_KEY is not defined in environment variables')
+  process.exit(1)
+}
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+
+// Helper function to validate URLs
+const isValidUrl = string => {
+  try {
+    const url = new URL(string)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch (_) {
+    return false
+  }
+}
+
+// Helper function to construct absolute image URL
+const getAbsoluteImageUrl = imageUrl => {
+  if (!imageUrl) return null
+
+  // If it's already a full URL, use it
+  if (imageUrl.startsWith('http')) {
+    return isValidUrl(imageUrl) ? imageUrl : null
+  }
+
+  // If it's a relative path starting with '/', construct full URL
+  if (imageUrl.startsWith('/')) {
+    const fullUrl = `${process.env.FRONTEND_URL}${imageUrl}`
+    return isValidUrl(fullUrl) ? fullUrl : null
+  }
+
+  // If it's just a filename, construct the full URL assuming it's in uploads
+  const fullUrl = `${process.env.FRONTEND_URL}/uploads/${imageUrl}`
+  return isValidUrl(fullUrl) ? fullUrl : null
+}
 
 // Create Order
 export const createOrder = async (req, res) => {
@@ -50,27 +86,69 @@ export const createOrder = async (req, res) => {
     const shippingCost = 0
     let newOrder
 
+    // Validate environment variables before creating Stripe session
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.error('STRIPE_SECRET_KEY is not defined in environment variables')
+      return res
+        .status(500)
+        .json({ message: 'Server configuration error: Missing Stripe key' })
+    }
+
+    if (!process.env.FRONTEND_URL) {
+      console.error('FRONTEND_URL is not defined in environment variables')
+      return res
+        .status(500)
+        .json({ message: 'Server configuration error: Missing frontend URL' })
+    }
+
+    // Validate order items have valid prices
+    const invalidItems = orderItems.filter(item => item.item.price <= 0)
+    if (invalidItems.length > 0) {
+      return res.status(400).json({ message: 'Invalid item prices detected' })
+    }
+
     if (paymentMethod === 'online') {
       try {
         console.log('Creating Stripe session...')
+
         const session = await stripe.checkout.sessions.create({
           payment_method_types: ['card'],
           mode: 'payment',
-          line_items: orderItems.map(o => ({
-            price_data: {
-              currency: 'inr',
-              product_data: { name: o.item.name },
-              unit_amount: Math.round(o.item.price * 100)
-            },
-            quantity: o.quantity
-          })),
+          line_items: orderItems.map(o => {
+            // Debug log to see what image URLs we're getting
+            console.log('Original imageUrl:', o.item.imageUrl)
+
+            const absoluteImageUrl = getAbsoluteImageUrl(o.item.imageUrl)
+            console.log('Processed imageUrl:', absoluteImageUrl)
+
+            return {
+              price_data: {
+                currency: 'inr',
+                product_data: {
+                  name: o.item.name,
+                  // Only include images if they're valid URLs, otherwise omit the field
+                  ...(absoluteImageUrl ? { images: [absoluteImageUrl] } : {})
+                },
+                unit_amount: Math.round(o.item.price * 100)
+              },
+              quantity: o.quantity
+            }
+          }),
           customer_email: email,
           success_url: `${process.env.FRONTEND_URL}/myorder/verify?success=true&session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${process.env.FRONTEND_URL}/checkout?payment_status=cancel`,
-          metadata: { firstName, lastName, email, phone }
+          metadata: {
+            firstName,
+            lastName,
+            email,
+            phone,
+            address,
+            city,
+            zipCode
+          }
         })
 
-        console.log('Stripe session created:', session)
+        console.log('Stripe session created successfully:', session.id)
 
         newOrder = new Order({
           user: req.user._id,
@@ -93,14 +171,19 @@ export const createOrder = async (req, res) => {
         })
 
         await newOrder.save()
-        return res
-          .status(201)
-          .json({ order: newOrder, checkoutUrl: session.url })
+        return res.status(201).json({
+          success: true,
+          order: newOrder,
+          checkoutUrl: session.url
+        })
       } catch (stripeError) {
         console.error('Stripe session creation error:', stripeError)
-        return res
-          .status(500)
-          .json({ message: 'Stripe payment error', error: stripeError.message })
+        console.error('Error details:', stripeError.message)
+        return res.status(500).json({
+          message: 'Stripe payment error',
+          error: stripeError.message,
+          details: stripeError.type || 'Unknown error type'
+        })
       }
     }
 
@@ -124,7 +207,7 @@ export const createOrder = async (req, res) => {
     })
 
     await newOrder.save()
-    res.status(201).json({ order: newOrder, checkoutUrl: null })
+    res.status(201).json({ success: true, order: newOrder, checkoutUrl: null })
   } catch (error) {
     console.error('createOrder error:', error)
     res.status(500).json({ message: 'Server Error', error: error.message })
@@ -135,23 +218,49 @@ export const createOrder = async (req, res) => {
 export const confirmPayment = async (req, res) => {
   try {
     const { session_id } = req.query
-    if (!session_id)
+    if (!session_id) {
       return res.status(400).json({ message: 'session_id required' })
+    }
+
+    // Validate environment variables
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.error('STRIPE_SECRET_KEY is not defined in environment variables')
+      return res
+        .status(500)
+        .json({ message: 'Server configuration error: Missing Stripe key' })
+    }
 
     const session = await stripe.checkout.sessions.retrieve(session_id)
+
     if (session.payment_status === 'paid') {
       const order = await Order.findOneAndUpdate(
         { sessionId: session_id },
         { paymentStatus: 'succeeded' },
         { new: true }
       )
-      if (!order) return res.status(404).json({ message: 'Order not found' })
-      return res.json(order)
+
+      if (!order) {
+        return res.status(404).json({ message: 'Order not found' })
+      }
+
+      return res.json({
+        success: true,
+        order,
+        message: 'Payment confirmed successfully'
+      })
+    } else {
+      return res.status(400).json({
+        message: 'Payment not completed',
+        paymentStatus: session.payment_status
+      })
     }
-    return res.status(400).json({ message: 'Payment not completed' })
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ message: 'Server Error', error: err.message })
+    console.error('confirmPayment error:', err)
+    res.status(500).json({
+      message: 'Server Error',
+      error: err.message,
+      details: err.type || 'Unknown error type'
+    })
   }
 }
 
@@ -192,17 +301,13 @@ export const getAllOrders = async (req, res) => {
       lastName: o.lastName,
       email: o.email,
       phone: o.phone,
-
-      // ← ADD these three:
       address: o.address ?? o.shippingAddress?.address ?? '',
       city: o.city ?? o.shippingAddress?.city ?? '',
       zipCode: o.zipCode ?? o.shippingAddress?.zipCode ?? '',
-
       paymentMethod: o.paymentMethod,
       paymentStatus: o.paymentStatus,
       status: o.status,
       createdAt: o.createdAt,
-
       items: o.items.map(i => ({
         _id: i._id,
         item: i.item,
@@ -217,7 +322,7 @@ export const getAllOrders = async (req, res) => {
   }
 }
 
-// NEW: updateAnyOrder — no ownership check
+// updateAnyOrder — no ownership check
 export const updateAnyOrder = async (req, res) => {
   try {
     const updated = await Order.findByIdAndUpdate(req.params.id, req.body, {
