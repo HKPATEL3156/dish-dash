@@ -125,7 +125,16 @@ const Footer = () => {
               rel="noopener noreferrer"
               className="text-lg font-sacramento bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 bg-clip-text text-transparent hover:text-purple-300 transition-all duration-500"
             >
-              Designed by Heet Kasodariya | 23DCS045
+              Designed by Heet Kasodariya | 23DCS045 
+            </a>
+            <span className="text-amber-400 mx-2"> & </span>
+             <a
+              href="https://api.whatsapp.com/send?phone=919925128371"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-lg font-sacramento bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 bg-clip-text text-transparent hover:text-purple-300 transition-all duration-500"
+            >
+                Prince Ghevariya | 23DCS033
             </a>
           </div>
         </div>

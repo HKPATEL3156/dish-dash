@@ -1,12 +1,18 @@
 // src/components/Admin/ListItems.jsx
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FiTrash2, FiStar, FiHeart } from 'react-icons/fi';
+import { FiTrash2, FiStar, FiHeart, FiEdit, FiSave, FiX, FiUpload } from 'react-icons/fi';
+import { FaRupeeSign } from 'react-icons/fa';
 import AdminNavbar from './AdminNavbar';
 
 const ListItems = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [editingItem, setEditingItem] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [categories] = useState([
+    'Breakfast', 'Lunch', 'Dinner', 'Mexican', 'Italian', 'Desserts', 'Drinks'
+  ]);
 
   // Fetch items from API
   useEffect(() => {
@@ -32,6 +38,73 @@ const ListItems = () => {
       console.log('Deleted item ID:', itemId);
     } catch (err) {
       console.error('Error deleting item:', err);
+    }
+  };
+
+  // Edit handlers
+  const handleEdit = (item) => {
+    setEditingItem(item._id);
+    setEditForm({
+      name: item.name,
+      description: item.description,
+      category: item.category,
+      price: item.price,
+      rating: item.rating,
+      hearts: item.hearts,
+      image: null,
+      preview: item.imageUrl
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingItem(null);
+    setEditForm({});
+  };
+
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setEditForm(prev => ({
+        ...prev,
+        image: file,
+        preview: URL.createObjectURL(file)
+      }));
+    }
+  };
+
+  const handleRatingChange = (rating) => {
+    setEditForm(prev => ({ ...prev, rating }));
+  };
+
+  const handleUpdate = async (itemId) => {
+    try {
+      const formData = new FormData();
+      Object.entries(editForm).forEach(([key, value]) => {
+        if (key === 'preview') return;
+        if (key === 'image' && !value) return;
+        formData.append(key, value);
+      });
+
+      const response = await axios.put(`http://localhost:4000/api/items/${itemId}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      if (response.data.success) {
+        // Update the item in the list
+        setItems(prev => prev.map(item => 
+          item._id === itemId ? response.data.item : item
+        ));
+        setEditingItem(null);
+        setEditForm({});
+      }
+    } catch (err) {
+      console.error('Error updating item:', err);
+      alert('Failed to update item');
     }
   };
 
@@ -96,40 +169,175 @@ const ListItems = () => {
                     <th className={styles.th}>Price (₹)</th>
                     <th className={styles.th}>Rating</th>
                     <th className={styles.th}>Hearts</th>
-                    <th className={styles.thCenter}>Delete</th>
+                    <th className={styles.thCenter}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map(item => (
                     <tr key={item._id} className={styles.tr}>
                       <td className={styles.imgCell}>
-                        <img
-                          src={item.imageUrl}
-                          alt={item.name}
-                          className={styles.img}
-                        />
+                        {editingItem === item._id ? (
+                          <div className="w-20 h-16 relative">
+                            <img
+                              src={editForm.preview}
+                              alt={item.name}
+                              className="w-full h-full object-cover rounded-lg"
+                            />
+                            <label className="absolute inset-0 bg-black/50 flex items-center justify-center cursor-pointer rounded-lg">
+                              <FiUpload className="text-white" />
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleImageChange}
+                                className="hidden"
+                              />
+                            </label>
+                          </div>
+                        ) : (
+                          <img
+                            src={item.imageUrl}
+                            alt={item.name}
+                            className={styles.img}
+                          />
+                        )}
                       </td>
                       <td className={styles.nameCell}>
-                        <div className="space-y-1">
-                          <p className={styles.nameText}>{item.name}</p>
-                          <p className={styles.descText}>{item.description}</p>
-                        </div>
+                        {editingItem === item._id ? (
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              name="name"
+                              value={editForm.name}
+                              onChange={handleFormChange}
+                              className="w-full bg-[#3a2b2b] border border-amber-500/30 rounded px-2 py-1 text-amber-100"
+                            />
+                            <textarea
+                              name="description"
+                              value={editForm.description}
+                              onChange={handleFormChange}
+                              rows="2"
+                              className="w-full bg-[#3a2b2b] border border-amber-500/30 rounded px-2 py-1 text-amber-100 text-sm"
+                            />
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            <p className={styles.nameText}>{item.name}</p>
+                            <p className={styles.descText}>{item.description}</p>
+                          </div>
+                        )}
                       </td>
-                      <td className={styles.categoryCell}>{item.category}</td>
-                      <td className={styles.priceCell}>₹{item.price}</td>
+                      <td className={styles.categoryCell}>
+                        {editingItem === item._id ? (
+                          <select
+                            name="category"
+                            value={editForm.category}
+                            onChange={handleFormChange}
+                            className="bg-[#3a2b2b] border border-amber-500/30 rounded px-2 py-1 text-amber-100"
+                          >
+                            {categories.map(cat => (
+                              <option key={cat} value={cat} className="bg-[#3a2b2b]">
+                                {cat}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          item.category
+                        )}
+                      </td>
+                      <td className={styles.priceCell}>
+                        {editingItem === item._id ? (
+                          <div className="relative">
+                            <FaRupeeSign className="absolute left-2 top-1/2 -translate-y-1/2 text-amber-500" />
+                            <input
+                              type="number"
+                              name="price"
+                              value={editForm.price}
+                              onChange={handleFormChange}
+                              min="0"
+                              step="0.01"
+                              className="w-20 bg-[#3a2b2b] border border-amber-500/30 rounded pl-6 pr-2 py-1 text-amber-100"
+                            />
+                          </div>
+                        ) : (
+                          `₹${item.price}`
+                        )}
+                      </td>
                       <td className={styles.ratingCell}>
-                        <div className="flex gap-1">{renderStars(item.rating)}</div>
+                        {editingItem === item._id ? (
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4, 5].map(star => (
+                              <button
+                                key={star}
+                                type="button"
+                                onClick={() => handleRatingChange(star)}
+                                className="text-lg transition-transform hover:scale-110"
+                              >
+                                <FiStar
+                                  className={
+                                    star <= editForm.rating
+                                      ? 'text-amber-400 fill-current'
+                                      : 'text-amber-100/30'
+                                  }
+                                />
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="flex gap-1">{renderStars(item.rating)}</div>
+                        )}
                       </td>
                       <td className={styles.heartsCell}>
-                        <div className={styles.heartsWrapper}>
-                          <FiHeart className="text-xl" />
-                          <span>{item.hearts}</span>
-                        </div>
+                        {editingItem === item._id ? (
+                          <div className="flex items-center gap-2">
+                            <FiHeart className="text-amber-400" />
+                            <input
+                              type="number"
+                              name="hearts"
+                              value={editForm.hearts}
+                              onChange={handleFormChange}
+                              min="0"
+                              className="w-16 bg-[#3a2b2b] border border-amber-500/30 rounded px-2 py-1 text-amber-100"
+                            />
+                          </div>
+                        ) : (
+                          <div className={styles.heartsWrapper}>
+                            <FiHeart className="text-xl" />
+                            <span>{item.hearts}</span>
+                          </div>
+                        )}
                       </td>
                       <td className="p-4 text-center">
-                        <button onClick={() => handleDelete(item._id)} className={styles.deleteBtn}>
-                          <FiTrash2 className="text-2xl" />
-                        </button>
+                        {editingItem === item._id ? (
+                          <div className="flex gap-2 justify-center">
+                            <button
+                              onClick={() => handleUpdate(item._id)}
+                              className="text-green-400 hover:text-green-300 p-2 rounded-lg hover:bg-green-900/20"
+                            >
+                              <FiSave className="text-xl" />
+                            </button>
+                            <button
+                              onClick={handleCancelEdit}
+                              className="text-red-400 hover:text-red-300 p-2 rounded-lg hover:bg-red-900/20"
+                            >
+                              <FiX className="text-xl" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2 justify-center">
+                            <button
+                              onClick={() => handleEdit(item)}
+                              className="text-blue-400 hover:text-blue-300 p-2 rounded-lg hover:bg-blue-900/20"
+                            >
+                              <FiEdit className="text-xl" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(item._id)}
+                              className={styles.deleteBtn}
+                            >
+                              <FiTrash2 className="text-xl" />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}

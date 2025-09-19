@@ -3,6 +3,7 @@ import multer from 'multer'
 import {
   createItem,
   getItems,
+  updateItem,
   deleteItem
 } from '../controllers/itemController.js'
 
@@ -16,6 +17,7 @@ const upload = multer({ storage })
 
 itemRouter.post('/', upload.single('image'), createItem)
 itemRouter.get('/', getItems)
+itemRouter.put('/:id', upload.single('image'), updateItem)
 itemRouter.delete('/:id', deleteItem)
 
 export default itemRouter

@@ -17,6 +17,7 @@ import AdminLayout from './pages/Admin/AdminLayout';
 import AddItems from './components/Admin/AddItems';
 import ListItems from './components/Admin/ListItems';
 import Orders from './components/Admin/Orders';
+import Customers from './components/Admin/Customers';
 
 function App() {
   return (
@@ -51,6 +52,7 @@ function App() {
         <Route index element={<AddItems />} />
         <Route path="list" element={<ListItems />} />
         <Route path="orders" element={<Orders />} />
+        <Route path="customers" element={<Customers />} />
       </Route>
     </Routes>
   );

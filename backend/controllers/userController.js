@@ -129,4 +129,82 @@ const registerUser = async (req, res) => {
   }
 }
 
-export { loginUser, registerUser }
+// GET ALL CUSTOMERS
+const getCustomers = async (req, res) => {
+  try {
+    console.log('Fetching customers from database...')
+
+    // Get all users with customer role
+    const customers = await userModel
+      .find({ role: 'customer' })
+      .select('-password')
+
+    console.log('Found customers:', customers.length)
+    console.log('Customers data:', customers)
+
+    res.json({ success: true, data: customers })
+  } catch (error) {
+    console.log('Error fetching customers:', error)
+    res.json({ success: false, message: 'Error fetching customers' })
+  }
+}
+
+// GET ALL USERS (for debugging)
+const getAllUsers = async (req, res) => {
+  try {
+    console.log('Fetching all users from database...')
+
+    const users = await userModel.find().select('-password')
+
+    console.log('Found total users:', users.length)
+    console.log('All users data:', users)
+
+    res.json({ success: true, data: users })
+  } catch (error) {
+    console.log('Error fetching all users:', error)
+    res.json({ success: false, message: 'Error fetching users' })
+  }
+}
+
+// UPDATE EXISTING USERS TO HAVE ROLE FIELD
+const updateUsersWithRole = async (req, res) => {
+  try {
+    console.log('Updating existing users with role field...')
+
+    // Update users without role field to be customers (except admin email)
+    const adminEmails = ['dishdash.restora@gmail.com']
+
+    const result = await userModel.updateMany({ role: { $exists: false } }, [
+      {
+        $set: {
+          role: {
+            $cond: {
+              if: { $in: ['$email', adminEmails] },
+              then: 'admin',
+              else: 'customer'
+            }
+          }
+        }
+      }
+    ])
+
+    console.log('Update result:', result)
+
+    res.json({
+      success: true,
+      message: `Updated ${result.modifiedCount} users with role field`,
+      result
+    })
+  } catch (error) {
+    console.log('Error updating users:', error)
+    res.json({ success: false, message: 'Error updating users' })
+  }
+}
+
+export {
+  loginUser,
+  registerUser,
+  getCustomers,
+  getAllUsers,
+  updateUsersWithRole
+}

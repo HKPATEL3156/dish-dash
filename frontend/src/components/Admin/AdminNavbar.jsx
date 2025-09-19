@@ -7,12 +7,13 @@ import {
   FiLogOut
 } from 'react-icons/fi';
 import { GiChefToque } from 'react-icons/gi';
-import { MdOutlineAdd, MdOutlineList, MdOutlineShoppingCart } from 'react-icons/md';
+import { MdOutlineAdd, MdOutlineList, MdOutlineShoppingCart, MdOutlinePeople } from 'react-icons/md';
 
 const navLinks = [
   { name: 'Add Items', href: '/admin', icon: <MdOutlineAdd /> },
   { name: 'List Items', href: '/admin/list', icon: <MdOutlineList /> },
   { name: 'Orders', href: '/admin/orders', icon: <MdOutlineShoppingCart /> },
+  { name: 'Customers', href: '/admin/customers', icon: <MdOutlinePeople /> },
 ];
 
 const AdminNavbar = () => {

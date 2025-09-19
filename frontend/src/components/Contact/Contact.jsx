@@ -36,7 +36,7 @@ const Contact = () => {
 
     const encodedMessage = encodeURIComponent(message);
 
-    const whatsappNumber = '919924484383';
+    const whatsappNumber = '919925128371'; 
 
     const whatsappUrl = `https://api.whatsapp.com/send?phone=${whatsappNumber}&text=${encodedMessage}`;
 
