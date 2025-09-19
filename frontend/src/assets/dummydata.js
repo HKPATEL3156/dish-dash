@@ -301,7 +301,7 @@ export const contactFormFields = [
     label: 'Dish Name',
     name: 'dish',
     type: 'text',
-    placeholder: 'Enter dish name (e.g., Butter Chicken)',
+    placeholder: 'Enter dish name (e.g., Paneer Tikka)',
     Icon: FaUtensils
   }
 ]

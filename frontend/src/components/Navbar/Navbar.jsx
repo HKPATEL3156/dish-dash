@@ -21,13 +21,13 @@ const Navbar = () => {
   const navigate = useNavigate();
 
   const [isAuthenticated, setIsAuthenticated] = useState(
-    Boolean(localStorage.getItem('loginData'))
+    Boolean(localStorage.getItem('loginData')) || Boolean(localStorage.getItem('authToken'))
   );
   const [showLoginModal, setShowLoginModal] = useState(false);
 
   useEffect(() => {
     setShowLoginModal(location.pathname === '/login');
-    setIsAuthenticated(Boolean(localStorage.getItem('loginData')));
+    setIsAuthenticated(Boolean(localStorage.getItem('loginData')) || Boolean(localStorage.getItem('authToken')));
   }, [location.pathname]);
 
   const navLinks = [
@@ -48,7 +48,10 @@ const Navbar = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('loginData');
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userData');
     setIsAuthenticated(false);
+    navigate('/');
   };
 
   const renderDesktopAuthButton = () => {

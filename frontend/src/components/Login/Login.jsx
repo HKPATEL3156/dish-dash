@@ -1,6 +1,6 @@
 // frontend/src/components/Login.jsx
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
   FaEnvelope,
@@ -16,6 +16,7 @@ import { inputBase, iconClass } from '../../assets/dummydata';
 const url = 'http://localhost:4000';
 
 const Login = ({ onLoginSuccess, onClose }) => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -54,6 +55,9 @@ const Login = ({ onLoginSuccess, onClose }) => {
       if (res.status === 200 && res.data.success && res.data.token) {
         // Save your JWT however you prefer
         localStorage.setItem('authToken', res.data.token);
+        
+        // Store user data for role-based redirects
+        localStorage.setItem('userData', JSON.stringify(res.data.user));
 
         // Remember-me for the form
         formData.rememberMe
@@ -65,9 +69,16 @@ const Login = ({ onLoginSuccess, onClose }) => {
           message: 'Login successful!',
           isError: false,
         });
+        
         setTimeout(() => {
           setToast({ visible: false, message: '', isError: false });
-          onLoginSuccess(res.data.token);
+          
+          // Check if user is admin and redirect accordingly
+          if (res.data.user && res.data.user.role === 'admin') {
+            navigate('/admin');
+          } else {
+            onLoginSuccess(res.data.token);
+          }
         }, 1500);
       } else {
         console.warn('⚠️ Unexpected response:', res.data);

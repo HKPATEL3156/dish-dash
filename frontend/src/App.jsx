@@ -8,9 +8,15 @@ import CheckoutPage from './pages/Checkout/Checkout';
 import AboutPage from './pages/AboutPage/AboutPage';
 import Menu from './pages/Menu/Menu';
 import PrivateRoute from './components/PrivateRoute/PrivateRoute';
-
+import AdminRoute from './components/AdminRoute/AdminRoute';
 import MyOrders from './pages/MyOredrs/MyOrders';
 import VerifyPaymentPage from './pages/VerifyPaymentPage/VerifyPaymentPage';
+
+// Admin Components
+import AdminLayout from './pages/Admin/AdminLayout';
+import AddItems from './components/Admin/AddItems';
+import ListItems from './components/Admin/ListItems';
+import Orders from './components/Admin/Orders';
 
 function App() {
   return (
@@ -26,7 +32,7 @@ function App() {
       {/* Payment verification */}
       <Route path="/myorder/verify" element={<VerifyPaymentPage />} />
 
-      {/* Protected */}
+      {/* Protected Customer Routes */}
       <Route
         path="/cart"
         element={<PrivateRoute><Cart /></PrivateRoute>}
@@ -35,12 +41,17 @@ function App() {
         path="/checkout"
         element={<PrivateRoute><CheckoutPage /></PrivateRoute>}
       />
-
-      {/* The actual orders list */}
       <Route
         path="/myorder"
         element={<PrivateRoute><MyOrders /></PrivateRoute>}
       />
+
+      {/* Admin Routes */}
+      <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
+        <Route index element={<AddItems />} />
+        <Route path="list" element={<ListItems />} />
+        <Route path="orders" element={<Orders />} />
+      </Route>
     </Routes>
   );
 }

@@ -14,7 +14,10 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 // Helper function to validate URLs
 const isValidUrl = string => {
   try {
-    const url = new URL(string)
+    if (!string || typeof string !== 'string' || string.trim() === '') {
+      return false
+    }
+    const url = new URL(string.trim())
     return url.protocol === 'http:' || url.protocol === 'https:'
   } catch (_) {
     return false
@@ -23,21 +26,41 @@ const isValidUrl = string => {
 
 // Helper function to construct absolute image URL
 const getAbsoluteImageUrl = imageUrl => {
-  if (!imageUrl) return null
-
-  // If it's already a full URL, use it
-  if (imageUrl.startsWith('http')) {
-    return isValidUrl(imageUrl) ? imageUrl : null
+  // Return null for invalid inputs
+  if (!imageUrl || typeof imageUrl !== 'string' || imageUrl.trim() === '') {
+    return null
   }
+
+  const cleanImageUrl = imageUrl.trim()
+
+  // If it's already a full URL, validate and return it
+  if (cleanImageUrl.startsWith('http')) {
+    return isValidUrl(cleanImageUrl) ? cleanImageUrl : null
+  }
+
+  // Check if FRONTEND_URL is defined
+  if (!process.env.FRONTEND_URL) {
+    console.error('FRONTEND_URL is not defined in environment variables')
+    return null
+  }
+
+  let fullUrl
 
   // If it's a relative path starting with '/', construct full URL
-  if (imageUrl.startsWith('/')) {
-    const fullUrl = `${process.env.FRONTEND_URL}${imageUrl}`
-    return isValidUrl(fullUrl) ? fullUrl : null
+  if (cleanImageUrl.startsWith('/')) {
+    // Split the path to encode only the filename part
+    const pathParts = cleanImageUrl.split('/')
+    const encodedParts = pathParts.map((part, index) => {
+      // Only encode the filename (last part), keep directory structure
+      return index === pathParts.length - 1 ? encodeURIComponent(part) : part
+    })
+    fullUrl = `${process.env.FRONTEND_URL}${encodedParts.join('/')}`
+  } else {
+    // If it's just a filename, construct the full URL assuming it's in uploads
+    const encodedFilename = encodeURIComponent(cleanImageUrl)
+    fullUrl = `${process.env.FRONTEND_URL}/uploads/${encodedFilename}`
   }
 
-  // If it's just a filename, construct the full URL assuming it's in uploads
-  const fullUrl = `${process.env.FRONTEND_URL}/uploads/${imageUrl}`
   return isValidUrl(fullUrl) ? fullUrl : null
 }
 
@@ -101,39 +124,99 @@ export const createOrder = async (req, res) => {
         .json({ message: 'Server configuration error: Missing frontend URL' })
     }
 
-    // Validate order items have valid prices
-    const invalidItems = orderItems.filter(item => item.item.price <= 0)
+    // Validate order items have valid prices and names
+    const invalidItems = orderItems.filter(
+      item =>
+        item.item.price <= 0 ||
+        !item.item.name ||
+        typeof item.item.name !== 'string' ||
+        item.item.name.trim() === ''
+    )
     if (invalidItems.length > 0) {
-      return res.status(400).json({ message: 'Invalid item prices detected' })
+      console.error('Invalid items detected:', invalidItems)
+      return res.status(400).json({
+        message: 'Invalid item data detected',
+        invalidItems: invalidItems.map((item, index) => ({
+          index,
+          name: item.item.name,
+          price: item.item.price,
+          issues: [
+            ...(item.item.price <= 0 ? ['Invalid price'] : []),
+            ...(!item.item.name ||
+            typeof item.item.name !== 'string' ||
+            item.item.name.trim() === ''
+              ? ['Invalid name']
+              : [])
+          ]
+        }))
+      })
     }
 
     if (paymentMethod === 'online') {
       try {
         console.log('Creating Stripe session...')
 
+        // Create line items with additional validation
+        const lineItems = orderItems.map((o, index) => {
+          // Debug log to see what image URLs we're getting
+          console.log(`Item ${index} - Original imageUrl:`, o.item.imageUrl)
+
+          const absoluteImageUrl = getAbsoluteImageUrl(o.item.imageUrl)
+          console.log(`Item ${index} - Processed imageUrl:`, absoluteImageUrl)
+
+          // Validate the processed URL one more time
+          const finalImageUrl =
+            absoluteImageUrl && isValidUrl(absoluteImageUrl)
+              ? absoluteImageUrl
+              : null
+
+          if (o.item.imageUrl && !finalImageUrl) {
+            console.warn(
+              `Item ${index} - Invalid image URL detected and excluded:`,
+              o.item.imageUrl
+            )
+          }
+
+          return {
+            price_data: {
+              currency: 'inr',
+              product_data: {
+                name: o.item.name || 'Unknown Product',
+                // Only include images if they're valid URLs, otherwise omit the field entirely
+                ...(finalImageUrl ? { images: [finalImageUrl] } : {})
+              },
+              unit_amount: Math.round(o.item.price * 100)
+            },
+            quantity: o.quantity
+          }
+        })
+
+        // Final validation - ensure all line items are valid
+        const validLineItems = lineItems.filter(item => {
+          const isValid =
+            item.price_data &&
+            item.price_data.product_data &&
+            item.price_data.product_data.name &&
+            item.price_data.unit_amount > 0 &&
+            item.quantity > 0
+
+          if (!isValid) {
+            console.error('Invalid line item filtered out:', item)
+          }
+
+          return isValid
+        })
+
+        if (validLineItems.length === 0) {
+          return res
+            .status(400)
+            .json({ message: 'No valid items found for payment processing' })
+        }
+
         const session = await stripe.checkout.sessions.create({
           payment_method_types: ['card'],
           mode: 'payment',
-          line_items: orderItems.map(o => {
-            // Debug log to see what image URLs we're getting
-            console.log('Original imageUrl:', o.item.imageUrl)
-
-            const absoluteImageUrl = getAbsoluteImageUrl(o.item.imageUrl)
-            console.log('Processed imageUrl:', absoluteImageUrl)
-
-            return {
-              price_data: {
-                currency: 'inr',
-                product_data: {
-                  name: o.item.name,
-                  // Only include images if they're valid URLs, otherwise omit the field
-                  ...(absoluteImageUrl ? { images: [absoluteImageUrl] } : {})
-                },
-                unit_amount: Math.round(o.item.price * 100)
-              },
-              quantity: o.quantity
-            }
-          }),
+          line_items: validLineItems,
           customer_email: email,
           success_url: `${process.env.FRONTEND_URL}/myorder/verify?success=true&session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${process.env.FRONTEND_URL}/checkout?payment_status=cancel`,

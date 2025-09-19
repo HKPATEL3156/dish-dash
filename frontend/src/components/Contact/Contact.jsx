@@ -124,7 +124,7 @@ const Contact = () => {
                 <div className="flex items-center text-amber-100 font-light">
                   <FiGlobe className="text-green-400 text-xl mr-2" />
                   +91 9259634802 |{'  '}
-                  <FiGlobe className="text-green-400 text-xl mr-2" />  +91
+                  <FiGlobe className="text-green-400 text-xl mr-2" /> +91
                   9876543210
                 </div>
               </div>
