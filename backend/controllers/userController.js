@@ -201,10 +201,65 @@ const updateUsersWithRole = async (req, res) => {
   }
 }
 
+// GET USER PROFILE
+const getUserProfile = async (req, res) => {
+  try {
+    const userId = req.user.id // From auth middleware
+    const user = await userModel.findById(userId).select('-password')
+
+    if (!user) {
+      return res.json({ success: false, message: 'User not found' })
+    }
+
+    res.json({ success: true, data: user })
+  } catch (error) {
+    console.log('Error fetching user profile:', error)
+    res.json({ success: false, message: 'Error fetching profile' })
+  }
+}
+
+// UPDATE USER PROFILE
+const updateUserProfile = async (req, res) => {
+  try {
+    const userId = req.user.id // From auth middleware
+    const { firstName, lastName, phone, address, city, zipCode } = req.body
+
+    const updatedUser = await userModel
+      .findByIdAndUpdate(
+        userId,
+        {
+          firstName,
+          lastName,
+          phone,
+          address,
+          city,
+          zipCode
+        },
+        { new: true, runValidators: true }
+      )
+      .select('-password')
+
+    if (!updatedUser) {
+      return res.json({ success: false, message: 'User not found' })
+    }
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: updatedUser
+    })
+  } catch (error) {
+    console.log('Error updating user profile:', error)
+    res.json({ success: false, message: 'Error updating profile' })
+  }
+}
+
 export {
   loginUser,
   registerUser,
   getCustomers,
   getAllUsers,
-  updateUsersWithRole
+  updateUsersWithRole,
+  getUserProfile,
+  updateUserProfile
 }

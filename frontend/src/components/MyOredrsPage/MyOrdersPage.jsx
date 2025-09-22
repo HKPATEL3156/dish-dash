@@ -11,6 +11,7 @@ import {
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { useCart } from '../../CartContext/CartContext';
+import UserProfile from '../UserProfile/UserProfile';
 
 const UserOrdersPage = () => {
   const [orders, setOrders] = useState([]);
@@ -155,8 +156,18 @@ const UserOrdersPage = () => {
 
         <div className="bg-[#4b3b3b]/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border-2 border-amber-500/20">
           <h2 className="text-3xl font-bold mb-8 bg-gradient-to-r from-amber-300 to-amber-500 bg-clip-text text-transparent text-center">
-            Order History
+            My Account
           </h2>
+
+          {/* User Profile Section */}
+          <div className="mb-8">
+            <UserProfile />
+          </div>
+
+          {/* Orders Section */}
+          <div className="mb-6">
+            <h3 className="text-2xl font-bold text-amber-300 mb-4">Order History</h3>
+          </div>
 
           <div className="overflow-x-auto">
             <table className="w-full">

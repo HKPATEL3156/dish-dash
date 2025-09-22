@@ -380,6 +380,7 @@ export const getAllOrders = async (req, res) => {
     const formatted = raw.map(o => ({
       _id: o._id,
       user: o.user,
+      userId: o.user, // Add this for easier customer matching
       firstName: o.firstName,
       lastName: o.lastName,
       email: o.email,
@@ -390,6 +391,10 @@ export const getAllOrders = async (req, res) => {
       paymentMethod: o.paymentMethod,
       paymentStatus: o.paymentStatus,
       status: o.status,
+      total: o.total, // Add the total field
+      subtotal: o.subtotal,
+      tax: o.tax,
+      shipping: o.shipping,
       createdAt: o.createdAt,
       items: o.items.map(i => ({
         _id: i._id,
@@ -397,6 +402,15 @@ export const getAllOrders = async (req, res) => {
         quantity: i.quantity
       }))
     }))
+
+    console.log(
+      'Formatted orders with totals:',
+      formatted.map(o => ({
+        id: o._id,
+        userId: o.userId,
+        total: o.total
+      }))
+    )
 
     res.json(formatted)
   } catch (error) {

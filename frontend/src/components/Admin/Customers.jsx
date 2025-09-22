@@ -43,12 +43,32 @@ const Customers = () => {
 
       // Calculate customer statistics
       const customerStats = users.map(user => {
-        const userOrders = orders.filter(order => order.userId === user._id);
+        console.log(`Processing user ${user.username} (${user._id})`);
+        
+        // Try both userId and user fields for matching
+        const userOrders = orders.filter(order => {
+          const orderUserId = order.userId || order.user;
+          const match = orderUserId && (orderUserId === user._id || orderUserId.toString() === user._id.toString());
+          if (match) {
+            console.log(`Found matching order for ${user.username}:`, order);
+          }
+          return match;
+        });
+        
+        console.log(`User ${user.username} has ${userOrders.length} orders:`, userOrders);
+        
         const totalOrders = userOrders.length;
-        const totalSpent = userOrders.reduce((sum, order) => sum + (order.total || 0), 0);
+        const totalSpent = userOrders.reduce((sum, order) => {
+          const orderTotal = order.total || 0;
+          console.log(`Order ${order._id} total: ${orderTotal}`);
+          return sum + orderTotal;
+        }, 0);
+        
         const lastOrder = userOrders.length > 0 ? 
           new Date(Math.max(...userOrders.map(o => new Date(o.createdAt)))).toLocaleDateString() : 
           'No orders';
+
+        console.log(`Stats for ${user.username}: ${totalOrders} orders, ₹${totalSpent} spent`);
 
         return {
           ...user,

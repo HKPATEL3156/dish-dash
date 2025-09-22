@@ -21,10 +21,46 @@ const CheckoutPage = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
 
   // Grab token from localStorage
   const token = localStorage.getItem('authToken');
   const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+
+  // Fetch user profile to pre-fill form
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const response = await axios.get('http://localhost:4000/api/user/profile', {
+          headers: authHeaders
+        });
+
+        if (response.data.success) {
+          const profile = response.data.data;
+          setUserProfile(profile);
+          
+          // Pre-fill form with profile data
+          setFormData(prev => ({
+            ...prev,
+            firstName: profile.firstName || '',
+            lastName: profile.lastName || '',
+            email: profile.email || '',
+            phone: profile.phone || '',
+            address: profile.address || '',
+            city: profile.city || '',
+            zipCode: profile.zipCode || ''
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+        // If profile fetch fails, we'll just continue with empty form
+      }
+    };
+
+    if (token) {
+      fetchUserProfile();
+    }
+  }, [token]);
 
   // Handle redirect back from payment gateway
   useEffect(() => {
@@ -138,23 +174,29 @@ const CheckoutPage = () => {
           {/* Personal Info Section */}
           <div className="bg-[#4b3b3b]/80 p-6 rounded-3xl space-y-6">
             <h2 className="text-2xl font-bold">Personal Information</h2>
+            
+            {/* Profile Message */}
+            {userProfile && (
+              <div className="bg-amber-600/10 border border-amber-500/30 rounded-lg p-3 text-amber-300 text-sm">
+                📋 Pre-filled from your profile. You can edit delivery details below.
+              </div>
+            )}
+            
             <Input
               label="First Name"
               name="firstName"
               value={formData.firstName}
               onChange={handleInputChange}
+              readOnly={true}
+              icon="👤"
             />
             <Input
               label="Last Name"
               name="lastName"
               value={formData.lastName}
               onChange={handleInputChange}
-            />
-            <Input
-              label="Phone"
-              name="phone"
-              value={formData.phone}
-              onChange={handleInputChange}
+              readOnly={true}
+              icon="👤"
             />
             <Input
               label="Email"
@@ -162,25 +204,48 @@ const CheckoutPage = () => {
               type="email"
               value={formData.email}
               onChange={handleInputChange}
+              readOnly={true}
+              icon="📧"
             />
-            <Input
-              label="Address"
-              name="address"
-              value={formData.address}
-              onChange={handleInputChange}
-            />
-            <Input
-              label="City"
-              name="city"
-              value={formData.city}
-              onChange={handleInputChange}
-            />
-            <Input
-              label="Zip Code"
-              name="zipCode"
-              value={formData.zipCode}
-              onChange={handleInputChange}
-            />
+            
+            <div className="border-t border-amber-500/20 pt-4">
+              <h3 className="text-lg font-semibold text-amber-300 mb-4">Delivery Details (Editable)</h3>
+              
+              <div className="space-y-4">
+                <Input
+                  label="Phone"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  icon="📱"
+                  placeholder="Enter delivery contact number"
+                />
+                <Input
+                  label="Address"
+                  name="address"
+                  value={formData.address}
+                  onChange={handleInputChange}
+                  icon="🏠"
+                  placeholder="Enter delivery address"
+                />
+                <Input
+                  label="City"
+                  name="city"
+                  value={formData.city}
+                  onChange={handleInputChange}
+                  icon="🏙️"
+                  placeholder="Enter city"
+                />
+                <Input
+                  label="Zip Code"
+                  name="zipCode"
+                  value={formData.zipCode}
+                  onChange={handleInputChange}
+                  icon="📮"
+                  placeholder="Enter zip code"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Payment Section */}
@@ -244,17 +309,40 @@ const CheckoutPage = () => {
   );
 };
 
-const Input = ({ label, name, type = 'text', value, onChange }) => (
-  <div>
-    <label className="block mb-1">{label}</label>
-    <input
-      type={type}
-      name={name}
-      value={value}
-      onChange={onChange}
-      required
-      className="w-full bg-[#3a2b2b]/50 rounded-xl px-4 py-2"
-    />
+const Input = ({ label, name, type = 'text', value, onChange, readOnly = false, icon, placeholder }) => (
+  <div className="space-y-2">
+    <label className="block text-sm font-medium text-amber-300">{label}</label>
+    <div className="relative">
+      {icon && (
+        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-amber-400 text-sm">
+          {icon}
+        </span>
+      )}
+      <input
+        type={type}
+        name={name}
+        value={value}
+        onChange={readOnly ? undefined : onChange}
+        required
+        readOnly={readOnly}
+        placeholder={placeholder}
+        className={`w-full rounded-xl px-4 py-3 transition-colors ${
+          icon ? 'pl-10' : ''
+        } ${
+          readOnly 
+            ? 'bg-[#3a2b2b]/30 text-amber-200 cursor-not-allowed border border-amber-500/20' 
+            : 'bg-[#3a2b2b]/50 text-white border border-amber-500/20 focus:border-amber-400 focus:outline-none'
+        }`}
+      />
+      {readOnly && (
+        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-amber-400/60 text-xs">
+          🔒
+        </div>
+      )}
+    </div>
+    {readOnly && (
+      <p className="text-xs text-amber-400/60">This field is from your profile and cannot be changed during checkout</p>
+    )}
   </div>
 );
 
