@@ -37,8 +37,11 @@ const getAbsoluteImageUrl = imageUrl => {
     return isValidUrl(fullUrl) ? fullUrl : null
   }
 
+  // Sanitize image URL by replacing spaces with underscores
+  const sanitizedImageUrl = imageUrl.replace(/\s+/g, '_')
+
   // If it's just a filename, construct the full URL assuming it's in uploads
-  const fullUrl = `${process.env.FRONTEND_URL}/uploads/${imageUrl}`
+  const fullUrl = `${process.env.FRONTEND_URL}/uploads/${sanitizedImageUrl}`
   return isValidUrl(fullUrl) ? fullUrl : null
 }
 

@@ -38,9 +38,11 @@ app.use(express.urlencoded({ extended: true }))
 // DB CONNECT
 connectDB()
 
+// Serve static files from the uploads folder
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
+
 // Routes
 app.use('/api/user', userRouter)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
 app.use('/api/cart', cartRouter)
 app.use('/api/items', itemRouter)
 app.use('/api/orders', orderRouter)
